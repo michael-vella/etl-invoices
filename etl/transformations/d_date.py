@@ -30,9 +30,6 @@ class ETLDateDimension(ETLBase):
 
     def run_etl(self) -> pd.DataFrame:
         """Concrete implementation of run_etl abstract method."""
-        self.logger.info("Initialising database transaction for date dimension full load creation")
-        self.db_session.begin()
-
         self.logger.info("Truncating table for full-load")
         self.truncate_table(table_name=self.table_name, session=self.db_session)
 
@@ -43,9 +40,6 @@ class ETLDateDimension(ETLBase):
         self.logger.info("Inserting dataframe into table")
         records = df.to_dict(orient="records")
         self.db_session.bulk_insert_mappings(DateDimension, records)
-
-        self.logger.info("Commiting database transaction for date dimension full load creation")
-        self.db_session.commit()
 
         self.logger.info("Date dimension ETL step successful")
 
