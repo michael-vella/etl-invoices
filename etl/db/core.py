@@ -6,10 +6,12 @@ from etl.logger import get_logger
 
 
 class Base(DeclarativeBase):
+    """Base class used by SQLAlchemy."""
     pass
 
 
 class DBContext:
+    """Class used to connect and create tables on Microsoft SQL Server."""
     def __init__(self) -> None:
         self.logger = get_logger(self.__class__.__name__)
 
