@@ -3,6 +3,7 @@ from etl.db.core import Base
 from etl.constants import DIM_PRODUCT_TABLE_NAME
 
 class ProductDimension(Base):
+    """Product dimension table."""
     __tablename__ = DIM_PRODUCT_TABLE_NAME
 
     product_key = Column(Integer, nullable=False, primary_key=True)

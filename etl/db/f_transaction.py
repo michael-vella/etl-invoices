@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, Double
+from sqlalchemy import Column, Integer, DateTime, Double
 from etl.db.core import Base
 from etl.constants import FACT_TRANSACTION_TABLE_NAME
 
 class TransactionFact(Base):
+    """Transactions fact table."""
     __tablename__ = FACT_TRANSACTION_TABLE_NAME
 
     date_key = Column(Integer, nullable=False, primary_key=True)

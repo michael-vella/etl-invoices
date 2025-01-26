@@ -3,6 +3,7 @@ from etl.db.core import Base
 from etl.constants import DIM_DATE_TABLE_NAME
 
 class DateDimension(Base):
+    """Date dimension table."""
     __tablename__ = DIM_DATE_TABLE_NAME
 
     date_key = Column(Integer, nullable=False, primary_key=True)
