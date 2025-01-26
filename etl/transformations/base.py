@@ -14,6 +14,11 @@ class ETLBase(ABC):
     def truncate_table(self, table_name: str, session: sessionmaker[Session]) -> None:
         """Method to truncate table."""
         session.execute(text(f"TRUNCATE TABLE {table_name};"))
+
+    def create_surrogate_key(self, surrogate_key_name: str, df: pd.DataFrame) -> pd.DataFrame:
+        """Create a surrogate key inside the DataFrame"""
+        df[surrogate_key_name] = range(1, len(df) + 1)
+        return df
     
     @abstractmethod
     def run_etl(self) -> None:

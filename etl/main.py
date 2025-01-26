@@ -1,83 +1,68 @@
 import pandas as pd
+from etl.db.core import DBContext
+from etl.constants import DB_SERVER, DB_USERNAME, DB_PASSWORD
+from etl.pipeline import ETLPipeline
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
+from logger import get_logger
 
 
-df: pd.DataFrame = pd.read_csv(
-    "..\data\Invoices_Year_2009-2010.csv",
-    sep=",",
-    encoding="unicode_escape", # was required because of unicode character issues reading the file.
-)
+def _read_csv_from_source(file_path: str) -> pd.DataFrame:
+    """Method to read from CSV file and return pandas DataFrame."""
+    return pd.read_csv(
+        file_path,
+        sep=",",
+        encoding="unicode_escape", # was required because of unicode character issues when reading the file
+    )
 
-prcsd_df: pd.DataFrame = df.rename(
-    columns={
-        "Invoice": "invoice_code",
-        "StockCode": "product_code",
-        "Description": "product_description",
-        "Quantity": "quantity",
-        "InvoiceDate": "invoice_date",
-        "Price": "price",
-        "Customer ID": "customer_id",
-        "country": "customer_country",
-    }
-)
+def main():
+    logger = get_logger("Main")
+    
+    logger.info("Initialising variables required.")
+    database_name: str = "invoices"
+    csv_file_path: str = "data\Invoices_Year_2009-2010.csv"
 
-prcsd_df["invoice_code"] = prcsd_df["invoice_code"].astype(str)
-prcsd_df["product_code"] = prcsd_df["product_code"].astype(str)
-prcsd_df["product_description"] = prcsd_df["product_description"].astype(str)
-prcsd_df["quantity"] = prcsd_df["quantity"].astype(int)
-# prcsd_df["invoice_date"] = pd.to_datetime(prcsd_df["invoice_date"])
-prcsd_df["price"] = prcsd_df["price"].astype(float)
-# prcsd_df["customer_id"] = prcsd_df["customer_id"].astype(int)
-# prcsd_df["customer_country"] = prcsd_df["customer_country"].astype(str)
+    db: DBContext = DBContext()
 
-# Create new columns to classify quantity and quality
-prcsd_df['quantity_class'] = prcsd_df['quantity'].apply(lambda x: 'positive' if x > 0 else ('negative' if x < 0 else 'zero'))
-prcsd_df['price_class'] = prcsd_df['price'].apply(lambda x: 'positive' if x > 0 else ('negative' if x < 0 else 'zero'))
+    # create database (if not exists)
+    db.create_db(
+        server=DB_SERVER,
+        username=DB_USERNAME,
+        password=DB_PASSWORD,
+        db_name=database_name
+    )
 
-# Group by the new classification columns and count the number of rows in each combination
-result = prcsd_df.groupby(['quantity_class', 'price_class']).size().reset_index(name='count')
+    # connect to database using SQLAlchemy 
+    engine = db.get_engine(
+        server=DB_SERVER,
+        username=DB_USERNAME,
+        password=DB_PASSWORD,
+        db_name=database_name
+    )
 
-print(result)
+    # create tables
+    db.create_tables(engine)
 
-neg_pos_df = prcsd_df[(prcsd_df['quantity_class'] == 'negative') & (prcsd_df['price_class'] == 'positive')]
-neg_zero_df = prcsd_df[(prcsd_df['quantity_class'] == 'negative') & (prcsd_df['price_class'] == 'zero')]
-pos_neg_df = prcsd_df[(prcsd_df['quantity_class'] == 'positive') & (prcsd_df['price_class'] == 'negative')]
-pos_pos_df = prcsd_df[(prcsd_df['quantity_class'] == 'positive') & (prcsd_df['price_class'] == 'positive')]
-pos_zero_df = prcsd_df[(prcsd_df['quantity_class'] == 'positive') & (prcsd_df['price_class'] == 'zero')]
+    # read csv file
+    logger.info("Reading CSV file from source")
+    df: pd.DataFrame = _read_csv_from_source(file_path=csv_file_path)
 
-columns_to_select = ["product_code", "invoice_code", "product_description", "quantity", "price"]
+    # create session - so that we handle the ETL pipeline as one transaction
+    # need to handle as one transcation because we will do a full-load approach
+    # full-load approach will truncate the tables and re-create them, hence why we need one transaction
+    Session = sessionmaker(bind=engine)
+    session = Session()
 
-print()
-print("Quantity: Negative. Price: Positive")
-print(neg_pos_df[columns_to_select])
-print()
+    # run etl pipeline
+    try:
+        pipeline = ETLPipeline(session)
+        pipeline.run_pipeline(df)
+        session.commit()
+    except SQLAlchemyError as e:
+        logger.critical(f"Error running ETL pipeline: {e}")
+        session.rollback()
+    finally:
+        session.close()
 
-print()
-print("Quantity: Negative. Price: Zero")
-print(neg_zero_df[columns_to_select])
-print()
-
-print()
-print("Quantity: Positive. Price: Negative")
-print(pos_neg_df[columns_to_select])
-print()
-
-print()
-print("Quantity: Positive. Price: Positive")
-print(pos_pos_df[columns_to_select])
-print()
-
-print()
-print("Quantity: Positive. Price: Zero")
-print(pos_zero_df[columns_to_select])
-print()
-
-
-# We have the following scenarios:
-
-# Quantity|Price   |Count  |Invoice Type
-
-# Negative|Positive|10,205 |Goods Bought
-# Negative|Zero    |2,121  |Free Goods Received
-# Positive|Negative|4      |Adjustments
-# Positive|Positive|511,537|Goods Sold
-# Positive|Zero    |1,594  |Free Goods Given
+if __name__ == "__main__":
+    main()
