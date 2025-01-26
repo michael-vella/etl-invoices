@@ -13,7 +13,7 @@ class ETLDateDimension(ETLBase):
         self.db_session: sessionmaker[Session] = session
 
     def _create_date_dim(self, start_date: str, end_date: str) -> pd.DataFrame:
-        """Create date timension"""
+        """Create date dimension"""
         date_range = pd.date_range(start=start_date, end=end_date)
 
         dim_date = pd.DataFrame({
