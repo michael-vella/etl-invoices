@@ -74,7 +74,7 @@ class ETLTransactionFact(ETLBase):
         # check for missing values in any of the dimension key columns
         missing_keys = df[column_names].isnull().sum()
         
-        # ff any column has missing values, raise an exception
+        # if any column has missing values, raise an exception
         if missing_keys.any():
             missing_cols = missing_keys[missing_keys > 0]
             raise ValueError(f"Missing values found in the following columns: {', '.join(missing_cols.index)}")

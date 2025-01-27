@@ -158,7 +158,7 @@ class ETLPipeline():
         product_dim = self.etl_product_dim.run_etl(df=df)
 
         self.logger.info("Run transaction fact etl step")
-        transaction_fact = self.etl_transaction_fact.run_etl(
+        self.etl_transaction_fact.run_etl(
             source_df=df,
             date_dim=date_dim,
             invoice_dim=invoice_dim,
