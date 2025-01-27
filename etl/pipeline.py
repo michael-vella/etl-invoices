@@ -10,6 +10,7 @@ from etl.logger import get_logger
 from etl.transformations.d_date import ETLDateDimension
 from etl.transformations.d_invoice import ETLInvoiceDimension
 from etl.transformations.d_customer import ETLCustomerDimension
+from etl.transformations.d_product import ETLProductDimension
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -20,6 +21,7 @@ class ETLPipeline():
         self.etl_date_dim = ETLDateDimension(table_name=DIM_DATE_TABLE_NAME, session=session)
         self.etl_invoice_dim = ETLInvoiceDimension(table_name=DIM_INVOICE_TABLE_NAME, session=session)
         self.etl_customer_dim = ETLCustomerDimension(table_name=DIM_CUSTOMER_TABLE_NAME, session=session)
+        self.etl_product_dim = ETLProductDimension(table_name=DIM_PRODUCT_TABLE_NAME, session=session)
 
     def _rename_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Rename columns inside a pandas DataFrame"""
@@ -108,6 +110,15 @@ class ETLPipeline():
         df["country"] = df["country"].replace(country_mapping)
 
         return df
+    
+    def _upper_case_and_trim_code(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert stock codes to uppercase.
+        Sometimes they are lowercase and sometimes upper.
+        But from initial data profiling these seem to be the same product 
+        because of the description.
+        """
+        df["code"] = df["code"].str.upper().str.strip()
+        return df
 
 
     def run_pipeline(self, df: pd.DataFrame):
@@ -129,6 +140,9 @@ class ETLPipeline():
         self.logger.info("Cleaning up customer country column")
         df = self._cleanup_country_column(df)
 
+        self.logger.info("Uppercasing and trimming whitespace from stock codes")
+        df = self._upper_case_and_trim_code(df)
+
         self.logger.info("Run date dimension etl step")
         date_dim = self.etl_date_dim.run_etl()
 
@@ -137,3 +151,6 @@ class ETLPipeline():
 
         self.logger.info("Run customer dimension etl step")
         customer_dim = self.etl_customer_dim.run_etl(df=df)
+
+        self.logger.info("Run product dimension etl step")
+        product_dim = self.etl_product_dim.run_etl(df=df)
