@@ -9,6 +9,7 @@ from etl.constants import (
 from etl.logger import get_logger
 from etl.transformations.d_date import ETLDateDimension
 from etl.transformations.d_invoice import ETLInvoiceDimension
+from etl.transformations.d_customer import ETLCustomerDimension
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -18,6 +19,7 @@ class ETLPipeline():
         self.logger = get_logger(self.__class__.__name__)
         self.etl_date_dim = ETLDateDimension(table_name=DIM_DATE_TABLE_NAME, session=session)
         self.etl_invoice_dim = ETLInvoiceDimension(table_name=DIM_INVOICE_TABLE_NAME, session=session)
+        self.etl_customer_dim = ETLCustomerDimension(table_name=DIM_CUSTOMER_TABLE_NAME, session=session)
 
     def _rename_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Rename columns inside a pandas DataFrame"""
@@ -85,6 +87,28 @@ class ETLPipeline():
             return 'Donation'
         else:
             return 'Unknown'
+        
+    def _cleanup_country_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Clean up the country column by
+        1. Mapping 'EIRE' to 'Ireland' (assuming correct).
+        2. Mapping 'RSA' to 'South Africa (assuming correct)
+        3. Mapping 'U.K' to 'United Kindgdom
+        4. Mapping 'nan', 'Unspecified', 'West Indies' to 'Unknown'.
+        5. Else, leave as is."""
+        country_mapping = {
+            "EIRE": "Ireland",
+            "RSA": "South Africa",
+            "U.K.": "United Kingdom",
+            "Unspecified": "Unknown",
+            "West Indies": "Unknown",
+            'nan': "Unknown",
+        }
+
+        # replace values in the country column based on mapping
+        df["country"] = df["country"].replace(country_mapping)
+
+        return df
+
 
     def run_pipeline(self, df: pd.DataFrame):
         """Run ETL pipeline to full-load invoices CSV file."""
@@ -102,8 +126,14 @@ class ETLPipeline():
         df = self._create_price_class_column(df)
         df["type"] = df.apply(self._categorize_invoice, axis=1)
 
+        self.logger.info("Cleaning up customer country column")
+        df = self._cleanup_country_column(df)
+
         self.logger.info("Run date dimension etl step")
         date_dim = self.etl_date_dim.run_etl()
 
         self.logger.info("Run invoice dimension etl step")
         invoice_dim = self.etl_invoice_dim.run_etl(df=df)
+
+        self.logger.info("Run customer dimension etl step")
+        customer_dim = self.etl_customer_dim.run_etl(df=df)
