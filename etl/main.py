@@ -56,7 +56,9 @@ def main():
     # run etl pipeline
     try:
         pipeline = ETLPipeline(session)
+        logger.info("Starting run of pipeline to load data from CSV file and create dims and facts")
         pipeline.run_pipeline(df)
+        logger.info("Pipeline run successful. Commiting")
         session.commit()
     except SQLAlchemyError as e:
         logger.critical(f"Error running ETL pipeline: {e}")

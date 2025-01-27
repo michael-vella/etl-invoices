@@ -11,6 +11,7 @@ from etl.transformations.d_date import ETLDateDimension
 from etl.transformations.d_invoice import ETLInvoiceDimension
 from etl.transformations.d_customer import ETLCustomerDimension
 from etl.transformations.d_product import ETLProductDimension
+from etl.transformations.f_transaction import ETLTransactionFact
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -22,6 +23,7 @@ class ETLPipeline():
         self.etl_invoice_dim = ETLInvoiceDimension(table_name=DIM_INVOICE_TABLE_NAME, session=session)
         self.etl_customer_dim = ETLCustomerDimension(table_name=DIM_CUSTOMER_TABLE_NAME, session=session)
         self.etl_product_dim = ETLProductDimension(table_name=DIM_PRODUCT_TABLE_NAME, session=session)
+        self.etl_transaction_fact = ETLTransactionFact(table_name=FACT_TRANSACTION_TABLE_NAME, session=session)
 
     def _rename_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Rename columns inside a pandas DataFrame"""
@@ -154,3 +156,12 @@ class ETLPipeline():
 
         self.logger.info("Run product dimension etl step")
         product_dim = self.etl_product_dim.run_etl(df=df)
+
+        self.logger.info("Run transaction fact etl step")
+        transaction_fact = self.etl_transaction_fact.run_etl(
+            source_df=df,
+            date_dim=date_dim,
+            invoice_dim=invoice_dim,
+            product_dim=product_dim,
+            customer_dim=customer_dim
+        )
