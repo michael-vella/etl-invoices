@@ -22,7 +22,7 @@ class ETLProductDimension(ETLBase):
         # group by stock_code and description, then count occurrences
         count_df = df.groupby(["code", "description"], as_index=False).size()
 
-        # sort be stock_code (asc) and size (desc)
+        # sort by stock_code (asc) and size (desc)
         # then drop_duplicates will keep only the first appearance
         # first appearance should be the one with the highest count due to sort
         top_descriptions = (
